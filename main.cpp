@@ -1,132 +1,136 @@
-#include <iostream>
-#include "cameracalibration.h"
-//#include "recievingthread.h"
-#include <pthread.h>
+//! @file
+//! @brief	main executable
 
-#include <cstdio>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <array>
+//#include "base/loadestimatingworker.hpp"
+#include "calibworker.hpp"
+#include "workersconfig.hpp"
+//#include "base/remotecontroller.hpp"
+
 #include <unistd.h>
-#include <iomanip>
+#include <inttypes.h>
 
-#include <opencv2/core.hpp>
-#include <opencv2/core/utility.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/calib3d.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/videoio.hpp>
-#include <opencv2/highgui.hpp>
-
-// for valid images for calibration
-#define DVS_CAL_OUT_FOLDER "/"
-#define RS_CAL_OUT_FOLDER "/"
-#define MAX_FRAME_TIME_DIFF 0.2
-
-std::string exec(const char* cmd) {
-    std::array<char, 128> buffer;
-    std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-    if (!pipe) {
-        throw std::runtime_error("popen() failed!");
-    }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
-    }
-    return result;
-}
-//returns mod time
-double getModTime(std::string file){
-
-    std::string command = "lsof "+file;
-
-    std::string res = exec(command.c_str());
-    //if output is emty than file is ready for opening
-    if(res.size()>1)
-        return 0;
-    std::string timeModifiedCommand = "stat --format='%.Y' "+file;
-    std::string resTime = exec(timeModifiedCommand.c_str());
+#include <iostream>
+#include <string>
 
 
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::string;
 
-    std::cout<<"open: "<<res<<"\n"<<std::flush;
-    std::cout<<"mofified: "<<resTime<<"\n"<<std::flush;
 
-    resTime = resTime.replace(resTime.find(","), 1, ".");
-    double timeModifiedD = std::stod(resTime);
-    return timeModifiedD;
-}
+//! WorkersConfig (externally accessible):
+WorkersConfig *p_conf = nullptr;
+#define getConfigOrDefault(key,defv) \
+    p_conf->getConfigOrDefault("dvs-worker", key, defv)
+
+
+//using DESTS = RemoteController::DESTS;
+//using TYPES = RemoteController::TYPES;
+
+
+//! Workers are defined here:
+//static LoadEstimatingWorker *p_leworker = nullptr;
+static CalibWorker *p_dvsworker = nullptr;
+
+//! Remote controller:
+//static RemoteController *p_ctrl = nullptr;
+
+
+//static void processUDPReceiveWorkerRequest(const RemoteController::Type_t &type, const std::string &data);
+//static void processLoadEstimatingWorkerRequest(const RemoteController::Type_t &type, const std::string &data);
+
+
 
 int main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
 
-    std::cout<<"OpenCV Version used:"<<CV_MAJOR_VERSION<<"."<<CV_MINOR_VERSION<<std::endl;
-    //cv::Mat inputImage;
-    //std::cout<<" empty:"<< inputImage.empty()<<"\n";
-    // // cv::namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
-    //inputImage = cv::imread("/home/vnpc/Pictures/mill.png");
+    WorkersConfig config = WorkersConfig();
+    p_conf = &config;
+    if (!config.loadFromFile("config.ini"))
+    {
+        std::cerr << "Cannot load config! Make sure that proper config.ini file exists!" << std::endl;
+   //     return 1;
+    }
 
-    //std::cout<<" cols:"<< inputImage.cols<<"\n";
-    //std::cout<<" empty after read:"<< inputImage.empty()<<"\n";
+    // setting main thread to Core #0
+    {
+        cpu_set_t m;
+        CPU_ZERO(&m);
+        CPU_SET(0, &m);
+        int ret = pthread_setaffinity_np(pthread_self(), sizeof(m), &m);
+        if (ret != 0)
+            cerr << "Error setting main thread affinity!" << endl;
+    }
 
-    //if(!inputImage.empty()) {
-
-    //   cv::namedWindow( "Display Image", CV_WINDOW_AUTOSIZE );
-    //cv::imshow("Display Image", inputImage);
-    //    cv::waitKey(0);
-    //}
-    //  //cv::Mat matInput = cv::imread("grafiks.png");
 
 
-    // check if input file exists and is closed
-    CameraCalibration dvsCalibration;
+    // Printing intro
+    cout << endl;
+    cout << "   _          " << endl;
+    cout << "  |    /_|  | " << endl;
+    cout << "  |_  /  |  |_" << endl << endl;
+    cout << "calib worker test program\n" << endl << endl;
 
-    std::string dvsFileName = "/home/vnpc/Pictures/mill.png";
-    std::string rsFileName = "/home/vnpc/Pictures/mill.png";
 
-    double dvsTime = getModTime(dvsFileName);
-    double rsTime = getModTime(rsFileName);
-    if(rsTime>1 && dvsTime>1){
-        //check if rs and dvs times are close
-        if(std::abs(rsTime-dvsTime)<0.2){
 
-            cv::Mat dvsImage=cv::imread(dvsFileName);
-            bool hasCornersDvs = dvsCalibration.checkCorners(dvsImage);
-            cv::Mat rsImage = cv::imread(rsFileName);
-            bool hasCornersRs = dvsCalibration.checkCorners(rsImage);
-            // store both images for latter calibration
+    // Generic UDP data logging
+    p_dvsworker = new CalibWorker();
+    //p_dvsworker->setCPUMask(0x02);
+  p_dvsworker->start();
+
+    // Waiting for user commands
+    while(true)
+    {
+        string userCommand;
+        std::cout <<"Enter command!";
+        std::cin>>userCommand;
+
+        if(!userCommand.compare("exit"))
+        {
+            break;
+        }
+        else if(!userCommand.compare("start"))
+        {
+            p_dvsworker->sendRequest(WORKER_REQUEST::RESERVE_FILE, 1000000);
+
+            p_dvsworker->sendRequest(WORKER_REQUEST::START);
+
+        }
+        else if(!userCommand.compare("size"))
+        {
+            p_dvsworker->sendRequest(WORKER_REQUEST::LENGTH_OF_DUMP);
+
+        }
+        else if(!userCommand.compare("convert"))
+        {
+            std::cout<<"converting";
+
+        std::cout<<"done converting";
+        }
+        else if(!userCommand.compare("0"))// zero time
+        {
+            p_dvsworker->sendRequest(WORKER_REQUEST::GET_CPU_LOAD);//temp
 
 
         }
-
-
+        else
+        {
+            cerr << "Cannot understand request\n";
+        }
+        userCommand="";
     }
+    p_dvsworker->sendRequest(WORKER_REQUEST::EXIT);
+    p_dvsworker->stop();
 
-    //usleep(500000);
-    //}
-    char a;
-
-    //CameraCalibration cameraCalibration;
+    delete p_dvsworker;
 
 
-    //pthread_t inc_x_thread;
-
-    /* create a second thread which executes inc_x(&x) */
-    //if(pthread_create(&inc_x_thread, NULL, RecievingThread::run,0)) {
-
-    //fprintf(stderr, "Error creating thread\n");
-    //return 1;
-
-    //}else{
-    //    std::cout<<" starting dvs thread"<<"\n";
-
-    //}
-
-    std::cin>>a;
-
-
-
-    return 1;
+    cout << "Bye." << endl;
+    return 0;
 }
+
+
 

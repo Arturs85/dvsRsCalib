@@ -121,5 +121,4 @@ void SocketServer::sendImage(uchar *data, int length)
     cout<<"len int"<<length<<"bytes : "<<(int)len[0]<<" "<<(int)len[1]<<" "<<(int)len[2]<<" "<<(int)len[3]<<endl;
     send(new_socket,lenInverted,4,0);
     send(new_socket,data,length,0);
-
-}
+ }

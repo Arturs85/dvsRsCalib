@@ -29,6 +29,8 @@
 #include <opencv2/highgui.hpp>
 
 #include "socketserver.h"
+#include "intrinsiccalibration.hpp"
+
 //! Log and Log Forward:
 #ifndef FROM_MAIN
 #define INIT_LOG_FORWARD_FOR_ALL()
@@ -135,8 +137,18 @@ void CalibWorker::threadFunction(void)
         case STATES::STARTUP:
             onSTARTUP();
             break;
-
-
+case STATES::IDLE:
+            onIDLE();
+            
+            break;
+        case STATES::INTRINSIC_ACCUMULATION:
+                    onIDLE();
+                   onINTRINSIC_ACCUMULATION();
+                    //int ret =dvsIntrinsicCalibrator.addImage();
+                    //if(ret) dvs done
+                    //rs..
+                    //if (dvsDone&&rs done) state ir calcIntrinsic
+                    break;
 
 
             // all other states are interpreted as error
@@ -178,9 +190,9 @@ void CalibWorker::threadFunction(void)
             case WORKER_REQUEST::START:
             {
                 logOutput << "Requested START." << LF;
+state = STATES::INTRINSIC_ACCUMULATION;
 
-
-sendImage();
+//sendImage();
                 sendResponse(WORKER_RESPONSE::STARTED);
                 break;
             }
@@ -213,6 +225,8 @@ sendImage();
 void CalibWorker::onSTARTUP(void)
 {
 socketserver = new SocketServer();
+dvsIntrinsicCalibration = new IntrinsicCalibration();
+
 state = STATES::IDLE;
 
 
@@ -228,13 +242,44 @@ void CalibWorker::onERROR(void)
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 
-void CalibWorker::sendImage()
+void CalibWorker::onIDLE()
+{
+    //read images from workers and send trough the server socket
+    if(currentDvsImage!=0)delete currentDvsImage;
+    currentDvsImage = SharedImage::dvsSharedImage.blockingCloneImage();
+
+    sendImage(currentDvsImage->image);
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+}
+
+void CalibWorker::onINTRINSIC_ACCUMULATION()
+{
+ dvsIntrinsicCalibration->addImage(currentDvsImage->image);
+}
+
+void CalibWorker::sendImage(cv::Mat dvsImage)
 {
     //test image sending
-  std::string dvsFileName = "/home/vnpc/Pictures/mill.png";
-  cv::Mat dvsImage=cv::imread(dvsFileName);
-  cv::putText(dvsImage, "Calib Worker", cvPoint(30,30),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+//  std::string dvsFileName = "/home/vnpc/Pictures/mill.png";
+  std::string dvsFileName = "/home/arturs/Pictures/partial.png";
+
+//  cv::Mat dvsImage=cv::imread(dvsFileName);
+
+  auto t = std::time(nullptr);
+      auto tm = *std::localtime(&t);
+
+      std::ostringstream oss;
+      oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+      auto str = oss.str();
+
+
+  cv::putText(dvsImage, "Calib Worker "+str, cv::Point(30,30),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
+  cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(30,60),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
+  cv::putText(dvsImage, "Dvs images age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(30,90),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
 
   std::vector<uchar> buff;//buffer for coding
      std::vector<int> param(2);

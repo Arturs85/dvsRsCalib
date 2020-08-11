@@ -6,11 +6,12 @@
 #include <libcaercpp/devices/davis.hpp>
 #include <libcaer/devices/device.h>
 #include <atomic>
-
+#include "sharedimage.hpp"
 #include <netdb.h>
 
 
 class SocketServer;
+class IntrinsicCalibration;
 
 class CalibWorker : public IWorkerThread
 {
@@ -38,11 +39,16 @@ protected:
 
 private:
 SocketServer* socketserver;
-    typedef enum class STATES : uint8_t
+IntrinsicCalibration* dvsIntrinsicCalibration;
+SharedImage* currentDvsImage=0;
+SharedImage* currentRsImage=0;
+
+
+typedef enum class STATES : uint8_t
     {
         STARTUP,
         IDLE,
-        WRITING,
+        INTRINSIC_ACCUMULATION,
         ERROR,
 
     } State_t;
@@ -50,7 +56,10 @@ SocketServer* socketserver;
     // process different states:
     void onSTARTUP(void);
     void onERROR(void);
-    void sendImage();
+    void onIDLE(void);
+    void onINTRINSIC_ACCUMULATION(void);
+
+    void sendImage(cv::Mat dvsImage);
     //void onERROR(void);
 
     //virtual void onStop(void) override;
