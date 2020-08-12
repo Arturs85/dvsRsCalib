@@ -275,11 +275,11 @@ void CalibWorker::sendImage(cv::Mat dvsImage)
 
 
   cv::putText(dvsImage, "Calib Worker "+str, cv::Point(30,30),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
   cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(30,60),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
   cv::putText(dvsImage, "Dvs images age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(30,90),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, CV_8U);
+      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
 
   std::vector<uchar> buff;//buffer for coding
      std::vector<int> param(2);

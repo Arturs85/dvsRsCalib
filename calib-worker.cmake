@@ -1,8 +1,8 @@
-#      ______     ______   __        __         _             
-#     |  _ \ \   / / ___|  \ \      / /__  _ __| | _____ _ __ 
-#     | | | \ \ / /\___ \   \ \ /\ / / _ \| '__| |/ / _ \ '__|
-#     | |_| |\ V /  ___) |   \ V  V / (_) | |  |   <  __/ |   
-#     |____/  \_/  |____/     \_/\_/ \___/|_|  |_|\_\___|_|   
+#      ____       __       __        __         _
+#     |  _ \     / /       \ \      / /__  _ __| | _____ _ __
+#     | |       / /\        \ \ /\ / / _ \| '__| |/ / _ \ '__|
+#     | |_       / |         \ V  V / (_) | |  |   <  __/ |
+#     |____/   _/  |____/     \_/\_/ \___/|_|  |_|\_\___|_|
 #
 cmake_minimum_required(VERSION 3.0)
 set(CMAKE_CXX_STANDARD 11)
@@ -27,8 +27,14 @@ include_directories(${CAER_LIBRARY_DIR}/../include)
 set(SRC_LIST)
 list(APPEND SRC_LIST
     ${CMAKE_CURRENT_LIST_DIR}/calibworker.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/cameracalibration.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/intrinsiccalibration.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/socketserver.cpp
+    ${WORKER_DEFS_DIR}/sharedimage.cpp
     ${WORKER_DEFS_DIR}/iworker.cpp
     ${WORKER_DEFS_DIR}/iworkerthread.cpp
+    ${WORKER_DEFS_DIR}/workersconfig.cpp
+
 )
 
 
@@ -37,7 +43,7 @@ add_library(calib-worker STATIC ${SRC_LIST})
 
 # Linking:
 link_directories(${CAER_LIBRARY_DIR}/../lib)
-set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} "-lpthread -pthread -lcaer -caer")
+set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} "-lpthread -pthread -lcaer -caer -lstdc++ -stdc++")
 target_link_libraries(calib-worker pthread caer)
 
 
