@@ -274,12 +274,12 @@ void CalibWorker::sendImage(cv::Mat dvsImage)
       auto str = oss.str();
 
 
-  cv::putText(dvsImage, "Calib Worker "+str, cv::Point(30,30),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(30,60),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs images age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(30,90),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
+  cv::putText(dvsImage, "Calib Worker "+str, cv::Point(10,30),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
+  cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(10,50),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
+  cv::putText(dvsImage, "Dvs image age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(10,70),
+      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
 
   std::vector<uchar> buff;//buffer for coding
      std::vector<int> param(2);
