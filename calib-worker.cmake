@@ -29,7 +29,8 @@ list(APPEND SRC_LIST
     ${CMAKE_CURRENT_LIST_DIR}/calibworker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/cameracalibration.cpp
     ${CMAKE_CURRENT_LIST_DIR}/intrinsiccalibration.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/socketserver.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/extrinsiccalibration.cpp    
+${CMAKE_CURRENT_LIST_DIR}/socketserver.cpp
     ${WORKER_DEFS_DIR}/sharedimage.cpp
     ${WORKER_DEFS_DIR}/iworker.cpp
     ${WORKER_DEFS_DIR}/iworkerthread.cpp

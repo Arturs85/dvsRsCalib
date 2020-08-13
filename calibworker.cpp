@@ -137,18 +137,20 @@ void CalibWorker::threadFunction(void)
         case STATES::STARTUP:
             onSTARTUP();
             break;
-case STATES::IDLE:
+        case STATES::IDLE:
             onIDLE();
             
             break;
         case STATES::INTRINSIC_ACCUMULATION:
-                    onIDLE();
-                   onINTRINSIC_ACCUMULATION();
-                    //int ret =dvsIntrinsicCalibrator.addImage();
-                    //if(ret) dvs done
-                    //rs..
-                    //if (dvsDone&&rs done) state ir calcIntrinsic
-                    break;
+            onINTRINSIC_ACCUMULATION();
+            onIDLE();
+
+            break;
+        case STATES::INTRINSIC_ACCUMULATION:
+            onINTRINSIC_ACCUMULATION();
+            onIDLE();
+
+            break;
 
 
             // all other states are interpreted as error
@@ -190,9 +192,9 @@ case STATES::IDLE:
             case WORKER_REQUEST::START:
             {
                 logOutput << "Requested START." << LF;
-state = STATES::INTRINSIC_ACCUMULATION;
+                state = STATES::INTRINSIC_ACCUMULATION;
 
-//sendImage();
+                //sendImage();
                 sendResponse(WORKER_RESPONSE::STARTED);
                 break;
             }
@@ -224,10 +226,10 @@ state = STATES::INTRINSIC_ACCUMULATION;
 
 void CalibWorker::onSTARTUP(void)
 {
-socketserver = new SocketServer();
-dvsIntrinsicCalibration = new IntrinsicCalibration();
+    socketserver = new SocketServer();
+    dvsIntrinsicCalibration = new IntrinsicCalibration();
 
-state = STATES::IDLE;
+    state = STATES::IDLE;
 
 
     logOutput<<"calib onStart finished \n";
@@ -255,39 +257,49 @@ void CalibWorker::onIDLE()
 
 void CalibWorker::onINTRINSIC_ACCUMULATION()
 {
- dvsIntrinsicCalibration->addImage(currentDvsImage->image);
+    bool finished = dvsIntrinsicCalibration->addImage(currentDvsImage->image);
+    if(finished){
+        //calculate calibration
+        state = STATES::EXTRINSIC_ACCUMULATION;
+    }
+}
+
+void CalibWorker::onEXTRINSIC_ACCUMULATION()
+{
+    //extrinsic calibrator
+
 }
 
 void CalibWorker::sendImage(cv::Mat dvsImage)
 {
     //test image sending
-//  std::string dvsFileName = "/home/vnpc/Pictures/mill.png";
-  std::string dvsFileName = "/home/arturs/Pictures/partial.png";
+    //  std::string dvsFileName = "/home/vnpc/Pictures/mill.png";
+    std::string dvsFileName = "/home/arturs/Pictures/partial.png";
 
-//  cv::Mat dvsImage=cv::imread(dvsFileName);
+    //  cv::Mat dvsImage=cv::imread(dvsFileName);
 
-  auto t = std::time(nullptr);
-      auto tm = *std::localtime(&t);
+    auto t = std::time(nullptr);
+    auto tm = *std::localtime(&t);
 
-      std::ostringstream oss;
-      oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-      auto str = oss.str();
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+    auto str = oss.str();
 
 
-  cv::putText(dvsImage, "Calib Worker "+str, cv::Point(30,30),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(30,60),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs images age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(30,90),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Calib Worker "+str, cv::Point(30,30),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(30,60),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Dvs images age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(30,90),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,20), 1, CV_8U);
 
-  std::vector<uchar> buff;//buffer for coding
-     std::vector<int> param(2);
-     param[0] = cv::IMWRITE_JPEG_QUALITY;
-     param[1] = 80;//default(95) 0-100
-     cv::imencode(".jpg", dvsImage, buff, param);
+    std::vector<uchar> buff;//buffer for coding
+    std::vector<int> param(2);
+    param[0] = cv::IMWRITE_JPEG_QUALITY;
+    param[1] = 80;//default(95) 0-100
+    cv::imencode(".jpg", dvsImage, buff, param);
 
-  SocketServer::sendImage(buff.data(),buff.size());
+    SocketServer::sendImage(buff.data(),buff.size());
 
 
 

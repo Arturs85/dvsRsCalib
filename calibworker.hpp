@@ -32,23 +32,24 @@ public:
     static  std::string imuPackageLabel;// = "imu_pkg_";//8 bytes
     static  std::string specialPackageLabel;// = "special_";//8 bytes
 
-  std::string dvsPreviewFilename = "dvsPreview.png";
+    std::string dvsPreviewFilename = "dvsPreview.png";
 protected:
 
     virtual p_CallableThreadFunction_t getCallableThreadFunction(void) override;
 
 private:
-SocketServer* socketserver;
-IntrinsicCalibration* dvsIntrinsicCalibration;
-SharedImage* currentDvsImage=0;
-SharedImage* currentRsImage=0;
+    SocketServer* socketserver;
+    IntrinsicCalibration* dvsIntrinsicCalibration;
+    SharedImage* currentDvsImage=0;
+    SharedImage* currentRsImage=0;
 
 
-typedef enum class STATES : uint8_t
+    typedef enum class STATES : uint8_t
     {
         STARTUP,
         IDLE,
         INTRINSIC_ACCUMULATION,
+        EXTRINSIC_ACCUMULATION,
         ERROR,
 
     } State_t;
@@ -58,6 +59,7 @@ typedef enum class STATES : uint8_t
     void onERROR(void);
     void onIDLE(void);
     void onINTRINSIC_ACCUMULATION(void);
+    void onEXTRINSIC_ACCUMULATION(void);
 
     void sendImage(cv::Mat dvsImage);
     //void onERROR(void);
