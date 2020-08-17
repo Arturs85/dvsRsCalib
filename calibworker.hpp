@@ -12,7 +12,7 @@
 
 class SocketServer;
 class IntrinsicCalibration;
-
+class ExtrinsicCalibration;
 class CalibWorker : public IWorkerThread
 {
 public:
@@ -31,6 +31,12 @@ public:
     static  std::string framesPackageLabel;// = "frames__";//8 bytes
     static  std::string imuPackageLabel;// = "imu_pkg_";//8 bytes
     static  std::string specialPackageLabel;// = "special_";//8 bytes
+    static const std::string rsCalibfile;
+    static const std::string dvsCalibfile;
+    static const std::string outCalibfile;
+
+    // char* leftcalib_file;
+    //   char* rightcalib_file;
 
     std::string dvsPreviewFilename = "dvsPreview.png";
 protected:
@@ -40,6 +46,7 @@ protected:
 private:
     SocketServer* socketserver;
     IntrinsicCalibration* dvsIntrinsicCalibration;
+    ExtrinsicCalibration* extrinsicCalibration;
     SharedImage* currentDvsImage=0;
     SharedImage* currentRsImage=0;
 
@@ -49,7 +56,10 @@ private:
         STARTUP,
         IDLE,
         INTRINSIC_ACCUMULATION,
+        INTRINSIC_CALCULATION,
         EXTRINSIC_ACCUMULATION,
+        EXTRINSIC_CALCULATION,
+        CALIB_DONE,
         ERROR,
 
     } State_t;
@@ -60,6 +70,8 @@ private:
     void onIDLE(void);
     void onINTRINSIC_ACCUMULATION(void);
     void onEXTRINSIC_ACCUMULATION(void);
+    void onINTRINSIC_CALCULATION(void);
+    void onEXTRINSIC_CALCULATION(void);
 
     void sendImage(cv::Mat dvsImage);
     //void onERROR(void);

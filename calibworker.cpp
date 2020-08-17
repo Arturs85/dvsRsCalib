@@ -30,7 +30,7 @@
 
 #include "socketserver.h"
 #include "intrinsiccalibration.hpp"
-
+#include "extrinsiccalibration.hpp"
 //! Log and Log Forward:
 #ifndef FROM_MAIN
 #define INIT_LOG_FORWARD_FOR_ALL()
@@ -74,9 +74,13 @@ constexpr unsigned int	DEFAULT__SLEEP_INTERVAL__MS		= 1000;
 constexpr size_t		DEFAULT__FILE_SIZE				= 32*1024*1024;
 typedef uint32_t		ALIGNED_DATA_TYPE;
 
+const std::string CalibWorker::rsCalibfile ="rsCalibfile";
+const std::string CalibWorker::dvsCalibfile ="dvsCalibfile";
+const std::string CalibWorker::outCalibfile ="outCalibfile";
 
 
 CalibWorker::CalibWorker()
+
 {
     MAX_WAIT__MS = DEFAULT__MAX_WAIT__MS;
     MAX_RECV_BYTES = DEFAULT__MAX_RECV_BYTES;
@@ -106,6 +110,7 @@ void CalibWorker::setSupportedRequestsAndResponses(RequestsSet_t& requests, Resp
     requests.insert(WORKER_REQUEST::WAIT_FOR_CLOCK_SYNC);
     requests.insert(WORKER_REQUEST::START);
     requests.insert(WORKER_REQUEST::LENGTH_OF_DUMP);
+    requests.insert(WORKER_REQUEST::ENTER_CALIB_MODE);
 
     responses.clear();
     responses.insert(WORKER_RESPONSE::FILE_RESERVE_OK);
@@ -146,13 +151,20 @@ void CalibWorker::threadFunction(void)
             onIDLE();
 
             break;
-        case STATES::INTRINSIC_ACCUMULATION:
-            onINTRINSIC_ACCUMULATION();
+        case STATES::EXTRINSIC_ACCUMULATION:
+            onEXTRINSIC_ACCUMULATION();
             onIDLE();
 
             break;
-
-
+        case STATES::INTRINSIC_CALCULATION:
+            onINTRINSIC_CALCULATION();
+            break;
+        case STATES::EXTRINSIC_CALCULATION:
+            onEXTRINSIC_CALCULATION();
+            break;
+        case STATES::CALIB_DONE:
+            onIDLE();
+            break;
             // all other states are interpreted as error
         case STATES::ERROR:
         default:
@@ -227,8 +239,8 @@ void CalibWorker::threadFunction(void)
 void CalibWorker::onSTARTUP(void)
 {
     socketserver = new SocketServer();
-    dvsIntrinsicCalibration = new IntrinsicCalibration();
-
+    dvsIntrinsicCalibration = new IntrinsicCalibration(dvsCalibfile);
+    extrinsicCalibration = new ExtrinsicCalibration(dvsCalibfile,rsCalibfile,outCalibfile);
     state = STATES::IDLE;
 
 
@@ -260,15 +272,40 @@ void CalibWorker::onINTRINSIC_ACCUMULATION()
     bool finished = dvsIntrinsicCalibration->addImage(currentDvsImage->image);
     if(finished){
         //calculate calibration
-        state = STATES::EXTRINSIC_ACCUMULATION;
+
+        state = STATES::INTRINSIC_CALCULATION;
     }
 }
 
 void CalibWorker::onEXTRINSIC_ACCUMULATION()
 {
     //extrinsic calibrator
+    bool finished = extrinsicCalibration->addDvsImage(currentDvsImage);
+    if(finished){
+        //calculate calibration
+        state = STATES::EXTRINSIC_CALCULATION;
+    }
+    finished = extrinsicCalibration->addRsImage(currentRsImage);
+    if(finished){
+        //calculate calibration
+        state = STATES::EXTRINSIC_CALCULATION;
+    }
+
 
 }
+
+void CalibWorker::onINTRINSIC_CALCULATION()
+{
+    dvsIntrinsicCalibration->startCalibration();//start and carry out, write intrinsic matrices in the dedicated files
+    state= STATES::EXTRINSIC_ACCUMULATION;
+}
+
+void CalibWorker::onEXTRINSIC_CALCULATION()
+{
+    extrinsicCalibration->startCalibration();
+    state = STATES::CALIB_DONE;
+}
+
 
 void CalibWorker::sendImage(cv::Mat dvsImage)
 {
@@ -287,12 +324,12 @@ void CalibWorker::sendImage(cv::Mat dvsImage)
 
 
 
-  cv::putText(dvsImage, "Calib Worker "+str, cv::Point(10,30),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(10,50),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
-  cv::putText(dvsImage, "Dvs image age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(10,70),
-      FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Calib Worker "+str, cv::Point(10,30),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Dvs images checked/valid "+std::to_string(dvsIntrinsicCalibration->totalFramesChecked)+"/"+std::to_string(dvsIntrinsicCalibration->capturedGoodFrames), cv::Point(10,50),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
+    cv::putText(dvsImage, "Dvs image age "+std::to_string(SharedImage::getSystemTimeSec()-currentDvsImage->timeModifiedSec), cv::Point(10,70),
+                FONT_HERSHEY_COMPLEX_SMALL, 0.5, cv::Scalar(200,200,20), 1, CV_8U);
 
     std::vector<uchar> buff;//buffer for coding
     std::vector<int> param(2);

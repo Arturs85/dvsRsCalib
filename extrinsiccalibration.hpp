@@ -21,15 +21,18 @@ using namespace cv;
 class ExtrinsicCalibration
 {
 public:
-    ExtrinsicCalibration();
+    ExtrinsicCalibration(std::string dvsFileNameYAML,std::string rsFileNameYAML,std::string outFileNameYAML);
     static const int  arrayWidth = 240;
     static const int  arrayHeight = 180;
-    static const double  dtMax = 0.1;//sec
+    constexpr static const double  dtMax = 0.1;//sec
 
     SharedImage* currentDvsImage=0;
     SharedImage* currentRsImage=0;
 
-    int  capturedGoodFrames=0;
+    string dvsFileNameYAML;
+    string rsFileNameYAML;
+    string outFileNameYAML;
+    int  capturedGoodFramePairs=0;
     int totalFramesChecked=0;
     static const int  REQUIRED_NUMBER_OF_FRAMES = 5;//25?
     bool isEnoughFrames = false;
@@ -44,8 +47,11 @@ public:
     VideoCapture inputCapture;
     bool checkCorners(Mat cvImage);
     bool addDvsImage(SharedImage *dvsImage);//uint8_t (*array)[arrayWidth][arrayHeight]);
-    bool addRsImage(Mat cvImage);
-    std::vector<std::vector<cv::Point2f>> imagePoints;
+    bool addRsImage(SharedImage *rsImage);
+
+    std::vector<std::vector<cv::Point2f>> imagePointsRs;
+    std::vector<std::vector<cv::Point2f>> imagePointsDvs;
+vector<cv::Point2f> pointBufDvs,pointBufRs;
     static void calcBoardCornerPositions(cv::Size boardSize, float squareSize, vector<cv::Point3f>& corners);
     void startCalibration();
     void setStarted();

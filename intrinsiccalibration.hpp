@@ -20,10 +20,11 @@ using namespace cv;
 class IntrinsicCalibration
 {
 public:
-    IntrinsicCalibration();
+    IntrinsicCalibration(std::string fileNameYAML);
   static const int  arrayWidth = 240;
   static const int  arrayHeight = 180;
-   int  capturedGoodFrames=0;
+ std::string fileNameYAML;
+  int  capturedGoodFrames=0;
   int totalFramesChecked=0;
    static const int  REQUIRED_NUMBER_OF_FRAMES = 5;//25?
   bool isEnoughFrames = false;

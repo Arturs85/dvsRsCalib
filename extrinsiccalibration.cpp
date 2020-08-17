@@ -1,17 +1,15 @@
 #include "extrinsiccalibration.hpp"
 
-       #include <unistd.h>
+#include <unistd.h>
 
 
 
-ExtrinsicCalibration::ExtrinsicCalibration()
+ExtrinsicCalibration::ExtrinsicCalibration(string dvsFileNameYAML, string rsFileNameYAML, string outFileNameYAML)
 {
-//                inputCapture.open(cameraID);
-//                while(true){
-//                    addImageAsArray();
-//                    usleep(10000);
+    this->dvsFileNameYAML = dvsFileNameYAML;
+    this->rsFileNameYAML = rsFileNameYAML;
+    this->outFileNameYAML = outFileNameYAML;
 
-//                }
 }
 
 bool ExtrinsicCalibration::checkCorners(cv::Mat cvImage)
@@ -19,132 +17,128 @@ bool ExtrinsicCalibration::checkCorners(cv::Mat cvImage)
     bool found =false;
     vector<cv::Point2f> pointBuf;
 
-        int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
-            chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
+    int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
+    chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
 
-            found = findChessboardCorners( cvImage, cv::Size(8,6), pointBuf, chessBoardFlags);
-            return found;
+    found = findChessboardCorners( cvImage, cv::Size(8,6), pointBuf, chessBoardFlags);
+    return found;
 }
 
 bool ExtrinsicCalibration::addDvsImage(SharedImage* dvsImage)
 {
-  //check corners
+    //check corners
     bool found =false;
     int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
-        chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
-
-        found = findChessboardCorners( dvsImage->image, cv::Size(8,6), pointBuf, chessBoardFlags);
+    chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
+    pointBufDvs.clear();
+    found = findChessboardCorners( dvsImage->image, cv::Size(8,6), pointBufDvs, chessBoardFlags);
     if(found)
     {
-       //check if there is good recent rs image
-if(currentRsImage!=0 && std::abs(currentRsImage->timeModifiedSec-dvsImage->timeModifiedSec)<dtMax){
-//store both images for stereo calibration
+        currentDvsImage = dvsImage;
+        cv::drawChessboardCorners( currentDvsImage->image,  cv::Size(8,6), cv::Mat(pointBufDvs), found );
 
-}
-        cv::cornerSubPix( cvImage, pointBuf, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
-    capturedGoodFrames++;
-    imagePoints.push_back(pointBuf);
-    if(capturedGoodFrames>=REQUIRED_NUMBER_OF_FRAMES)
-        isEnoughFrames=true;
-    }
+        //check if there is good recent rs image
+        if(currentRsImage!=0 && std::abs(currentRsImage->timeModifiedSec-dvsImage->timeModifiedSec)<dtMax){
+            //store both images, get points for stereo calibration,
+            cv::cornerSubPix( currentRsImage->image, pointBufRs, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
+            imagePointsRs.push_back(pointBufRs);
+            cv::cornerSubPix( currentDvsImage->image, pointBufRs, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
+            imagePointsDvs.push_back(pointBufDvs);
+            capturedGoodFramePairs++;
 
-}
+            delete (currentDvsImage);
+            currentDvsImage=0;
 
-bool ExtrinsicCalibration::addRsImage(Mat cvImage)
-{
-
-}
-
-bool ExtrinsicCalibration::addImage(cv::Mat cvImage)//uint8_t (*array)[CameraCalibration::arrayWidth][CameraCalibration::arrayHeight])
-{
-if(isEnoughFrames)
-return isEnoughFrames;
-
-// cv::Mat cvImage;//(arrayWidth, arrayHeight, CV_8UC1, array);
-   // inputCapture >> cvImage;
-
- //   cv::namedWindow( winName, WINDOW_AUTOSIZE );
-//  cv::setMouseCallback(winName, callBackFunc);
-        vector<cv::Point2f> pointBuf;
-        //cv::Vec<float,2> pointBuf;
-       if(setToSave){
-       saveImage(cvImage);
-       setToSave = false;
-       }
-        bool found =false;
-        int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
-            chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
-
-            found = findChessboardCorners( cvImage, cv::Size(8,6), pointBuf, chessBoardFlags);
-        if(found)
-        {
-            cv::cornerSubPix( cvImage, pointBuf, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
-        capturedGoodFrames++;
-        imagePoints.push_back(pointBuf);
-        if(capturedGoodFrames>=REQUIRED_NUMBER_OF_FRAMES)
-            isEnoughFrames=true;
+            if(capturedGoodFramePairs>=REQUIRED_NUMBER_OF_FRAMES){
+                isEnoughFrames=true;
+            }
         }
-
-            cv::drawChessboardCorners( cvImage,  cv::Size(8,6), cv::Mat(pointBuf), found );
-     //   imshow( winName, cvImage );                   // Show our image inside it.
-//cv::waitKey(30);
-       //  cout<<"found so far: "<<capturedGoodFrames<<endl;
-       totalFramesChecked++;
-            return isEnoughFrames;
-
-
+        delete (currentRsImage);//delete the other image, it is too old anyway
+        currentRsImage=0;
+    }
+    return isEnoughFrames;
 }
+
+bool ExtrinsicCalibration::addRsImage(SharedImage* rsImage)
+{
+    //check corners
+    bool found =false;
+    int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
+    chessBoardFlags |= cv::CALIB_CB_FAST_CHECK;
+    pointBufDvs.clear();
+    found = findChessboardCorners( rsImage->image, cv::Size(8,6), pointBufRs, chessBoardFlags);
+    if(found)
+    {
+        currentRsImage = rsImage;
+        cv::drawChessboardCorners( currentRsImage->image,  cv::Size(8,6), cv::Mat(pointBufRs), found );
+
+        //check if there is good recent rs image
+        if(currentDvsImage!=0 && std::abs(currentDvsImage->timeModifiedSec-rsImage->timeModifiedSec)<dtMax){
+            //store both images, get points for stereo calibration,
+            cv::cornerSubPix( currentRsImage->image, pointBufRs, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
+            imagePointsRs.push_back(pointBufRs);
+            cv::cornerSubPix( currentDvsImage->image, pointBufRs, cv::Size(11,11),cv::Size(-1,-1), cv::TermCriteria( cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.1 ));
+            imagePointsDvs.push_back(pointBufDvs);
+            capturedGoodFramePairs++;
+            delete (currentRsImage);
+            currentRsImage=0;
+
+            if(capturedGoodFramePairs>=REQUIRED_NUMBER_OF_FRAMES){
+                isEnoughFrames=true;
+            }
+        }
+        delete (currentDvsImage);//delete the other image, it is too old anyway
+        currentDvsImage=0;
+    }
+    return isEnoughFrames;
+}
+
+
+
+
 
 void ExtrinsicCalibration::calcBoardCornerPositions(cv::Size boardSize, float squareSize, vector<cv::Point3f> &corners)
 {
     corners.clear();
-        for( int i = 0; i < boardSize.height; ++i )
-            for( int j = 0; j < boardSize.width; ++j )
-                corners.push_back(Point3f(j*squareSize, i*squareSize, 0));
+    for( int i = 0; i < boardSize.height; ++i )
+        for( int j = 0; j < boardSize.width; ++j )
+            corners.push_back(Point3f(j*squareSize, i*squareSize, 0));
 
 }
 
 void ExtrinsicCalibration::startCalibration()
 {
-    vector<vector<cv::Point3f> > objectPoints(1);
-    calcBoardCornerPositions(boardSize, squareSize, objectPoints[0]);
-    objectPoints.resize(imagePoints.size(),objectPoints[0]);
+    Mat Kdvs, Krs, R, F, E;
+    Vec3d T;
+    Mat Ddvs, Drs;
+    vector< vector< Point3f > > object_points;
+    cv::FileStorage dvsFs(dvsFileNameYAML,cv::FileStorage::READ);
+    cv::FileStorage rsFs(rsFileNameYAML,cv::FileStorage::READ);
 
-   Mat cameraMatrix = Mat::eye(3, 3, CV_64F);
-         cameraMatrix.at<double>(0,0) = 1;//s.aspectRatio;
+    dvsFs["K"] >> Kdvs;
+    rsFs["K"] >> Krs;
+    dvsFs["D"] >> Ddvs;
+    rsFs["D"] >> Drs;
+    int flag = 0;
+    flag |= cv::CALIB_FIX_INTRINSIC;
 
-Mat distCoeffs = Mat::zeros(8, 1, CV_64F);
+    cout << "Read intrinsics" << endl;
 
-vector<Mat> rvecs, tvecs;
+    stereoCalibrate(object_points, imagePointsDvs, imagePointsRs, Kdvs, Ddvs, Krs, Drs, Kdvs.size(), R, T, E, F);
 
-double rms = calibrateCamera(objectPoints, imagePoints, imageSize, cameraMatrix,
-                            distCoeffs, rvecs, tvecs, CALIB_FIX_ASPECT_RATIO|CALIB_FIX_K4|CALIB_FIX_K5);
-
-
-cout<<"calibration calculated with error of: "<<rms<<endl;
-
-cout<< cameraMatrix.at<double>(0,0)<<" "<<cameraMatrix.at<double>(0,1)<<" "<<cameraMatrix.at<double>(0,2)<<endl;
-cout<< cameraMatrix.at<double>(1,0)<<" "<<cameraMatrix.at<double>(1,1)<<" "<<cameraMatrix.at<double>(1,2)<<endl;
-cout<< cameraMatrix.at<double>(2,0)<<" "<<cameraMatrix.at<double>(2,1)<<" "<<cameraMatrix.at<double>(2,2)<<endl;
-
-
-isCalibrationCalculated = true;
+    isCalibrationCalculated = true;
 }
 
-void IntrinsicCalibration::setStarted()
-{
-//    isCalibrationStarted=true;
 
-}
 bool ExtrinsicCalibration::setToSave = false;
 void ExtrinsicCalibration::callBackFunc(int event, int x, int y, int flags, void* userdata)
 {
     if (event == EVENT_LBUTTONDOWN)
     {
-       // if (button.contains(Point(x, y)))
+        // if (button.contains(Point(x, y)))
         {
             cout << "Clicked!" << endl;
-          setToSave = true;
+            setToSave = true;
             //  rectangle(canvas(button), button, Scalar(0,0,255), 2);
         }
     }
@@ -153,7 +147,7 @@ void ExtrinsicCalibration::callBackFunc(int event, int x, int y, int flags, void
         //rectangle(canvas, button, Scalar(200, 200, 200), 2);
     }
 
-   // imshow(winName, canvas);
+    // imshow(winName, canvas);
     waitKey(1);
 }
 
@@ -167,7 +161,7 @@ void ExtrinsicCalibration::saveImage(cv::Mat mat)
     std::string filename = "1-"+std::to_string(imgCounter)+".png";
     imgCounter++;
 
-            try
+    try
     {
         result = imwrite(filename, mat, compression_params);
     }
@@ -179,5 +173,5 @@ void ExtrinsicCalibration::saveImage(cv::Mat mat)
         printf("Saved PNG file with alpha data.\n");
     else
         printf("ERROR: Can't save PNG file.\n");
-   // return result ? 0 : 1;
+    // return result ? 0 : 1;
 }
